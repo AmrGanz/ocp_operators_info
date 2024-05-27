@@ -1,6 +1,6 @@
 # Introduction:
 
-This tool helps you extract OpenShift Operators' metadata when it comes to getting details about the default channl and other avaialble channels:
+This tool helps you extract OpenShift Operators' metadata when it comes to getting details about the default channel and other avaialble channels:
 
 ```
 [root]# head script.sh
