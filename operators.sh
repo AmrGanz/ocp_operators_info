@@ -12,7 +12,7 @@ get_term_width () {
 	done
 }
 
-cleanup () {
+cleanup_old_data () {
 	rm -rf $MYWORKDIR 2> /dev/null
 	podman stop operators-list --timeout 1 2> /dev/null
 	podman rm operators-list -f 2> /dev/null
@@ -64,18 +64,37 @@ build_operators_map () {
 	
 	echo -e NAME DEFAULT_CHANNEL OTHER_CHANNELS > $MYWORKDIR/operators-data.txt
 	for i in `ls $MYWORKDIR/configs/` ; do 
-		NAME=$(cat $MYWORKDIR/configs/$i/catalog.json | jq -r ' . | select (.defaultChannel != null) | .name')
-		DEFAULTCHANNEL=$(cat $MYWORKDIR/configs/$i/catalog.json | jq -r ' . | select (.defaultChannel != null) | .defaultChannel')
-		CHANNELS=$(cat $MYWORKDIR/configs/$i/catalog.json | jq -r ' . | select (.schema == "olm.channel") | .name ')
-	        MODIFIEDCHANNELS=""
-		for x in $CHANNELS ; do
-			if [ $x == $DEFAULTCHANNEL ]; then
-				echo 1 > /dev/null
-			else
-				MODIFIEDCHANNELS+="$x "
-			fi
-		done
-		echo -e $NAME $DEFAULTCHANNEL $MODIFIEDCHANNELS >> $MYWORKDIR/operators-data.txt
+		if [ -f $MYWORKDIR/configs/$i/catalog.json ]; then
+			NAME=$(cat $MYWORKDIR/configs/$i/catalog.json | jq -r ' . | select (.defaultChannel != null) | .name')
+			DEFAULTCHANNEL=$(cat $MYWORKDIR/configs/$i/catalog.json | jq -r ' . | select (.defaultChannel != null) | .defaultChannel')
+			CHANNELS=$(cat $MYWORKDIR/configs/$i/catalog.json | jq -r ' . | select (.schema == "olm.channel") | .name ')
+		        MODIFIEDCHANNELS=""
+			for x in $CHANNELS ; do
+				if [ $x == $DEFAULTCHANNEL ]; then
+					echo 1 > /dev/null
+				else
+					MODIFIEDCHANNELS+="$x "
+				fi
+			done
+			echo -e $NAME $DEFAULTCHANNEL $MODIFIEDCHANNELS >> $MYWORKDIR/operators-data.txt
+		elif [ -f $MYWORKDIR/configs/$i/catalog.yaml ]; then
+			NAME=$(cat $MYWORKDIR/configs/$i/catalog.yaml | yq -N ' . | select (.defaultChannel != null) | .name')
+			DEFAULTCHANNEL=$(cat $MYWORKDIR/configs/$i/catalog.yaml | yq -N ' . | select (.defaultChannel != null) | .defaultChannel')
+			CHANNELS=$(cat $MYWORKDIR/configs/$i/catalog.yaml | yq -N ' . | select (.schema == "olm.channel") | .name ')
+		        MODIFIEDCHANNELS=""
+			for x in $CHANNELS ; do
+				if [ $x == $DEFAULTCHANNEL ]; then
+					echo 1 > /dev/null
+				else
+					MODIFIEDCHANNELS+="$x "
+				fi
+			done
+			echo -e $NAME $DEFAULTCHANNEL $MODIFIEDCHANNELS >> $MYWORKDIR/operators-data.txt
+			
+		else
+			echo
+		fi
+			
 	done
 
 	echo
@@ -84,13 +103,18 @@ build_operators_map () {
 	cat $MYWORKDIR/operators-data.txt | column -t
 }
 
+remove_pod () {
+        podman stop operators-list --timeout 1 2> /dev/null
+        podman rm operators-list -f 2> /dev/null
+}
+
 if [ -z $IMAGE ]; then
 	echo -e "\e[93m >> Please provide the target Operators Index Image \e[0m"
 	exit 0
 else
 	get_term_width
 	echo -e "\e[93m >> CLEANING UP OLD USED DIRECTORIES (if exists) \e[0m"
-	cleanup
+	cleanup_old_data
 	echo
 	echo "$LINE"
 	echo
@@ -111,4 +135,9 @@ else
 	echo
 	echo -e "\e[93m >> Building up the Operators data map file \e[0m"
 	build_operators_map
+	echo
+	echo "$LINE"
+	echo
+	echo -e "\e[93m >> Removing the temporary pod \e[0m"
+	remove_pod
 fi
